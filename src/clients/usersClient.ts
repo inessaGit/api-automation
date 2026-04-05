@@ -51,8 +51,10 @@ export interface AuthErrorResponse {
   error: string;
 }
 
+const reqresApiKey = process.env.REQRES_API_KEY ?? '';
 const client = createClient(
-  process.env.REQRES_BASE_URL ?? 'https://reqres.in/api'
+  process.env.REQRES_BASE_URL ?? 'https://reqres.in/api',
+  reqresApiKey ? { 'x-api-key': reqresApiKey } : {}
 );
 
 export const usersClient = {
