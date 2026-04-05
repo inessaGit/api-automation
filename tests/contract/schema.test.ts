@@ -8,6 +8,9 @@ import {
   userListResponseSchema,
   singleUserResponseSchema,
   loginResponseSchema,
+  registerResponseSchema,
+  authErrorSchema,
+  reqResUserDataSchema,
 } from '../../src/schemas/user.schema';
 import { VALID_REQRES_CREDENTIALS } from '../../src/utils/dataFactory';
 
@@ -122,5 +125,85 @@ describe('Contract — User Schema Validation', () => {
     };
     const result = singleUserResponseSchema.safeParse({ data: invalidUser, support: { url: 'https://example.com', text: 'support' } });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('Contract — Schema Tests (Extended)', () => {
+  it('POST /register response satisfies registerResponseSchema', async () => {
+    // ReqRes pre-defined registerable user
+    const response = await usersClient.register('eve.holt@reqres.in', 'pistol');
+    const result = registerResponseSchema.safeParse(response.data);
+
+    expect(result.success).toBe(true);
+
+    if (result.success) {
+      expect(typeof result.data.id).toBe('number');
+      expect(result.data.id).toBeGreaterThan(0);
+      expect(typeof result.data.token).toBe('string');
+      expect(result.data.token.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('POST /login with missing password returns authErrorSchema shape', async () => {
+    // Axios throws on 4xx — catch and validate the error response body
+    try {
+      await usersClient.login('peter@klaven.com', undefined as unknown as string);
+      fail('Expected request to throw on 400');
+    } catch (err: unknown) {
+      const axios = await import('axios');
+      if (axios.default.isAxiosError(err) && err.response) {
+        const result = authErrorSchema.safeParse(err.response.data);
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.error).toBe('Missing password');
+        }
+      } else {
+        throw err;
+      }
+    }
+  });
+
+  it('GET /users page 2 — every user in data array satisfies reqResUserDataSchema', async () => {
+    const response = await usersClient.getAll(2);
+    const listResult = userListResponseSchema.safeParse(response.data);
+
+    expect(listResult.success).toBe(true);
+
+    if (listResult.success) {
+      expect(listResult.data.page).toBe(2);
+      for (const user of listResult.data.data) {
+        const userResult = reqResUserDataSchema.safeParse(user);
+        expect(userResult.success).toBe(true);
+        if (userResult.success) {
+          expect(userResult.data.email).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+          expect(userResult.data.avatar).toMatch(/^https?:\/\//);
+        }
+      }
+    }
+  });
+
+  it('postSchema rejects non-positive id — boundary: id must be integer > 0', () => {
+    const withZeroId = { id: 0, userId: 1, title: 'Test', body: 'Body' };
+    const withNegativeId = { id: -5, userId: 1, title: 'Test', body: 'Body' };
+    const withFloatId = { id: 1.5, userId: 1, title: 'Test', body: 'Body' };
+
+    expect(postSchema.safeParse(withZeroId).success).toBe(false);
+    expect(postSchema.safeParse(withNegativeId).success).toBe(false);
+    expect(postSchema.safeParse(withFloatId).success).toBe(false);
+  });
+
+  it('GET /posts — every post in the full collection has non-empty title and body', async () => {
+    const response = await postsClient.getAll();
+    const result = postArraySchema.safeParse(response.data);
+
+    expect(result.success).toBe(true);
+
+    if (result.success) {
+      const emptyTitles = result.data.filter((p) => p.title.trim().length === 0);
+      const emptyBodies = result.data.filter((p) => p.body.trim().length === 0);
+
+      expect(emptyTitles).toHaveLength(0);
+      expect(emptyBodies).toHaveLength(0);
+    }
   });
 });
