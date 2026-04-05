@@ -1,11 +1,11 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import 'dotenv/config';
 
-export function createClient(baseURL: string): AxiosInstance {
+export function createClient(baseURL: string, extraHeaders: Record<string, string> = {}): AxiosInstance {
   const client = axios.create({
     baseURL,
     timeout: Number(process.env.REQUEST_TIMEOUT_MS) || 10000,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...extraHeaders },
   });
 
   client.interceptors.request.use(
