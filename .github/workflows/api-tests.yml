@@ -33,6 +33,7 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
         env:
+          REQRES_API_KEY: ${{ secrets.REQRES_API_KEY }}
           JSONPLACEHOLDER_BASE_URL: https://jsonplaceholder.typicode.com
           REQRES_BASE_URL: https://reqres.in/api
           REQUEST_TIMEOUT_MS: 15000
